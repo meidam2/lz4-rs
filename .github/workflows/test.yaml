@@ -19,6 +19,7 @@ jobs:
         run: rustup component add rustfmt
       - name: Checkout
         uses: actions/checkout@master
+        submodules: true
       - name: Check Rust formatting
         run: cargo fmt -- --check
       - name: build
@@ -35,6 +36,7 @@ jobs:
         run: rustup component add rustfmt
       - name: Checkout
         uses: actions/checkout@master
+        submodules: true
       - name: Check Rust formatting
         run: cargo fmt -- --check
       - name: build
