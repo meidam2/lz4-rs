@@ -182,7 +182,7 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
 
 #[cfg(test)]
 mod test {
-    use block::{compress, decompress, CompressionMode};
+    use crate::block::{compress, decompress, CompressionMode};
 
     #[test]
     fn test_compression_without_prefix() {
