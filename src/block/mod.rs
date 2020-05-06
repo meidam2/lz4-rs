@@ -64,17 +64,16 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
 
     let dec_size;
     {
-        let dst_buf: &mut [u8];
-        if prepend_size {
+        let dst_buf = if prepend_size {
             let size = src.len() as u32;
             compressed[0] = size as u8;
             compressed[1] = (size >> 8) as u8;
             compressed[2] = (size >> 16) as u8;
             compressed[3] = (size >> 24) as u8;
-            dst_buf = &mut compressed[4..];
+            &mut compressed[4..]
         } else {
-            dst_buf = &mut compressed;
-        }
+            &mut compressed
+        };
 
         dec_size = match mode {
             Some(CompressionMode::HIGHCOMPRESSION(level)) => unsafe {

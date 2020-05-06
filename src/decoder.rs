@@ -24,7 +24,7 @@ impl<R: Read> Decoder<R> {
     /// `finish()`
     pub fn new(r: R) -> Result<Decoder<R>> {
         Ok(Decoder {
-            r: r,
+            r,
             c: DecoderContext::new()?,
             buf: vec![0; BUFFER_SIZE].into_boxed_slice(),
             pos: BUFFER_SIZE,
@@ -55,18 +55,19 @@ impl<R: Read> Decoder<R> {
 
 impl<R: Read> Read for Decoder<R> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if self.next == 0 || buf.len() == 0 {
+        if self.next == 0 || buf.is_empty() {
             return Ok(0);
         }
         let mut dst_offset: usize = 0;
         while dst_offset == 0 {
             if self.pos >= self.len {
-                let need = match self.buf.len() < self.next {
-                    true => self.buf.len(),
-                    false => self.next,
+                let need = if self.buf.len() < self.next {
+                    self.buf.len()
+                } else {
+                    self.next
                 };
                 self.len = self.r.read(&mut self.buf[0..need])?;
-                if self.len <= 0 {
+                if self.len == 0 {
                     break;
                 }
                 self.pos = 0;
@@ -102,9 +103,7 @@ impl<R: Read> Read for Decoder<R> {
 impl DecoderContext {
     fn new() -> Result<DecoderContext> {
         let mut context = LZ4FDecompressionContext(ptr::null_mut());
-        check_error(unsafe {
-            LZ4F_createDecompressionContext(&mut context, LZ4F_VERSION)
-        })?;
+        check_error(unsafe { LZ4F_createDecompressionContext(&mut context, LZ4F_VERSION) })?;
         Ok(DecoderContext { c: context })
     }
 }
@@ -135,7 +134,7 @@ mod test {
 
     impl<R: Read, Rn: Rng> ErrorWrapper<R, Rn> {
         fn new(rng: Rn, read: R) -> Self {
-            ErrorWrapper { r: read, rng: rng }
+            ErrorWrapper { r: read, rng }
         }
     }
 

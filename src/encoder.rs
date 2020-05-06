@@ -73,14 +73,11 @@ impl EncoderBuilder {
                 reserved: [0; 5],
             },
             compression_level: self.level,
-            auto_flush: match self.auto_flush {
-                false => 0,
-                true => 1,
-            },
+            auto_flush: if self.auto_flush { 1 } else { 0 },
             reserved: [0; 4],
         };
         let mut encoder = Encoder {
-            w: w,
+            w,
             c: EncoderContext::new()?,
             limit: block_size,
             buffer: Vec::with_capacity(check_error(unsafe {
@@ -99,7 +96,7 @@ impl<W: Write> Encoder<W> {
                 self.c.c,
                 self.buffer.as_mut_ptr(),
                 self.buffer.capacity() as size_t,
-                preferences
+                preferences,
             ))?;
             self.buffer.set_len(len);
         }
@@ -112,7 +109,7 @@ impl<W: Write> Encoder<W> {
                 self.c.c,
                 self.buffer.as_mut_ptr(),
                 self.buffer.capacity() as size_t,
-                ptr::null()
+                ptr::null(),
             ))?;
             self.buffer.set_len(len);
         };
@@ -145,7 +142,7 @@ impl<W: Write> Write for Encoder<W> {
                     self.buffer.capacity() as size_t,
                     buffer[offset..].as_ptr(),
                     size as size_t,
-                    ptr::null()
+                    ptr::null(),
                 ))?;
                 self.buffer.set_len(len);
                 self.w.write_all(&self.buffer)?;
@@ -162,7 +159,7 @@ impl<W: Write> Write for Encoder<W> {
                     self.c.c,
                     self.buffer.as_mut_ptr(),
                     self.buffer.capacity() as size_t,
-                    ptr::null()
+                    ptr::null(),
                 ))?;
                 if len == 0 {
                     break;
@@ -178,9 +175,7 @@ impl<W: Write> Write for Encoder<W> {
 impl EncoderContext {
     fn new() -> Result<EncoderContext> {
         let mut context = LZ4FCompressionContext(ptr::null_mut());
-        check_error(unsafe {
-            LZ4F_createCompressionContext(&mut context, LZ4F_VERSION)
-        })?;
+        check_error(unsafe { LZ4F_createCompressionContext(&mut context, LZ4F_VERSION) })?;
         Ok(EncoderContext { c: context })
     }
 }
