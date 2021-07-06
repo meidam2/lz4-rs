@@ -29,12 +29,15 @@ fn run() -> Result<(), Box<dyn Error>> {
         if target == "i686-pc-windows-gnu" {
             // Disable auto-vectorization for 32-bit MinGW target.
             compiler.flag("-fno-tree-vectorize");
-        } else if get_from_env("CRT_STATIC")?.to_uppercase() == "TRUE" {
-            // Must supply the /MT compiler flag to use the multi-threaded, static VCRUNTIME library
-            // when building on Windows. Cargo does not pass RUSTFLAGS to build scripts
-            // (see: https://github.com/rust-lang/cargo/issues/4423) so we must use a custom env
-            // variable "CRT_STATIC."
-            compiler.static_crt(true);
+        }
+        if let Ok(value) = get_from_env("CRT_STATIC") {
+            if value.to_uppercase() == "TRUE" {
+                // Must supply the /MT compiler flag to use the multi-threaded, static VCRUNTIME library
+                // when building on Windows. Cargo does not pass RUSTFLAGS to build scripts
+                // (see: https://github.com/rust-lang/cargo/issues/4423) so we must use a custom env
+                // variable "CRT_STATIC."
+                compiler.static_crt(true);
+            }
         }
     }
     compiler.compile("liblz4.a");
