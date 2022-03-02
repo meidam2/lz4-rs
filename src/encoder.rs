@@ -5,11 +5,12 @@ use std::io::Result;
 use std::io::Write;
 use std::ptr;
 
+#[derive(Debug)]
 struct EncoderContext {
     c: LZ4FCompressionContext,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EncoderBuilder {
     block_size: BlockSize,
     block_mode: BlockMode,
@@ -20,6 +21,7 @@ pub struct EncoderBuilder {
     auto_flush: bool,
 }
 
+#[derive(Debug)]
 pub struct Encoder<W> {
     c: EncoderContext,
     w: W,

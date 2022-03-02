@@ -26,19 +26,19 @@ use std::os::raw::{c_void, c_char, c_uint, c_int};
 #[allow(non_camel_case_types)]
 type size_t = usize;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct LZ4FCompressionContext(pub *mut c_void);
 unsafe impl Send for LZ4FCompressionContext {}
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct LZ4FDecompressionContext(pub *mut c_void);
 unsafe impl Send for LZ4FDecompressionContext {}
 
 pub type LZ4FErrorCode = size_t;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(u32)]
 pub enum BlockSize {
     Default = 0, // Default - 64KB
@@ -60,20 +60,21 @@ impl BlockSize {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(u32)]
 pub enum BlockMode {
     Linked = 0,
     Independent,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(u32)]
 pub enum ContentChecksum {
     NoChecksum = 0,
     ChecksumEnabled,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4FFrameInfo {
     pub block_size_id: BlockSize,
@@ -82,6 +83,7 @@ pub struct LZ4FFrameInfo {
     pub reserved: [c_uint; 5],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4FPreferences {
     pub frame_info: LZ4FFrameInfo,
@@ -90,6 +92,7 @@ pub struct LZ4FPreferences {
     pub reserved: [c_uint; 4],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4FCompressOptions {
     pub stable_src: c_uint, /* 1 == src content will remain available on future calls
@@ -98,6 +101,7 @@ pub struct LZ4FCompressOptions {
     pub reserved: [c_uint; 3],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4FDecompressOptions {
     pub stable_dst: c_uint, /* guarantee that decompressed data will still be there on next
@@ -105,9 +109,11 @@ pub struct LZ4FDecompressOptions {
     pub reserved: [c_uint; 3],
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4StreamEncode(c_void);
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LZ4StreamDecode(c_void);
 
