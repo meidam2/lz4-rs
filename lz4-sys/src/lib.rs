@@ -89,7 +89,8 @@ pub struct LZ4FPreferences {
     pub frame_info: LZ4FFrameInfo,
     pub compression_level: c_uint, // 0 == default (fast mode); values above 16 count as 16
     pub auto_flush: c_uint, // 1 == always flush : reduce need for tmp buffer
-    pub reserved: [c_uint; 4],
+    pub favor_dec_speed: c_uint, // 1 == favor decompression speed over ratio, requires level 10+
+    pub reserved: [c_uint; 3],
 }
 
 #[derive(Debug)]

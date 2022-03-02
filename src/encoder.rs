@@ -19,6 +19,7 @@ pub struct EncoderBuilder {
     level: u32,
     // 1 == always flush (reduce need for tmp buffer)
     auto_flush: bool,
+    favor_dec_speed: bool,
 }
 
 #[derive(Debug)]
@@ -37,6 +38,7 @@ impl EncoderBuilder {
             checksum: ContentChecksum::ChecksumEnabled,
             level: 0,
             auto_flush: false,
+            favor_dec_speed: false,
         }
     }
 
@@ -65,6 +67,13 @@ impl EncoderBuilder {
         self
     }
 
+    /// Favor decompression speed over compression ratio. Requires compression
+    /// level >=10.
+    pub fn favor_dec_speed(&mut self, favor_dec_speed: bool) -> &mut Self {
+        self.favor_dec_speed = favor_dec_speed;
+        self
+    }
+
     pub fn build<W: Write>(&self, w: W) -> Result<Encoder<W>> {
         let block_size = self.block_size.get_size();
         let preferences = LZ4FPreferences {
@@ -76,7 +85,8 @@ impl EncoderBuilder {
             },
             compression_level: self.level,
             auto_flush: if self.auto_flush { 1 } else { 0 },
-            reserved: [0; 4],
+            favor_dec_speed: if self.favor_dec_speed { 1 } else { 0 },
+            reserved: [0; 3],
         };
         let mut encoder = Encoder {
             w,
