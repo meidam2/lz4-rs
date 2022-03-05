@@ -5,10 +5,12 @@ use std::ptr;
 
 const BUFFER_SIZE: usize = 32 * 1024;
 
+#[derive(Debug)]
 struct DecoderContext {
     c: LZ4FDecompressionContext,
 }
 
+#[derive(Debug)]
 pub struct Decoder<R> {
     c: DecoderContext,
     r: R,
