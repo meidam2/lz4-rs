@@ -141,7 +141,7 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
         src = &src[4..];
     }
 
-    if size <= 0 {
+    if size < 0 {
         return Err(Error::new(
             ErrorKind::InvalidInput,
             if uncompressed_size.is_some() {
@@ -275,5 +275,14 @@ mod test {
         }
 
         assert_eq!(decompress(&compressed, None).unwrap(), reference.as_bytes())
+    }
+
+    #[test]
+    fn test_empty_compress() {
+        use crate::block::{compress, decompress};
+        let v = vec![0u8; 0];
+        let comp_with_prefix = compress(&v, None, true).unwrap();
+        dbg!(&comp_with_prefix);
+        assert_eq!(v, decompress(&comp_with_prefix, None).unwrap());
     }
 }
