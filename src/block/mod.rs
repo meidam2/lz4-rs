@@ -33,6 +33,24 @@ pub enum CompressionMode {
     DEFAULT,
 }
 
+/// Returns the size of the buffer that is guaranteed to hold the result of 
+/// compressing `uncompressed_size` bytes of in data. Returns std::io::Error
+/// with ErrorKind::InvalidInput if input data is too long to be compressed by lz4.
+pub fn compress_bound(uncompressed_size: usize) -> Result<usize> {
+    // 0 iff src too large
+    let compress_bound: i32 = unsafe { LZ4_compressBound(uncompressed_size as i32) };
+
+    if uncompressed_size > (i32::max_value() as usize) || compress_bound <= 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "Compression input too long.",
+        ));
+    }
+
+    Ok(compress_bound as usize)
+}
+
+
 /// Compresses the full src buffer using the specified CompressionMode, where None and Some(Default)
 /// are treated equally. If prepend_size is set, the source length will be prepended to the output
 /// buffer.
@@ -42,7 +60,6 @@ pub enum CompressionMode {
 /// Returns std::io::Error with ErrorKind::InvalidInput if the src buffer is too long.
 /// Returns std::io::Error with ErrorKind::Other if the compression failed inside the C library. If
 /// this happens, the C api was not able to provide more information about the cause.
-///
 pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -> Result<Vec<u8>> {
     // 0 iff src too large
     let compress_bound: i32 = unsafe { LZ4_compressBound(src.len() as i32) };
@@ -63,18 +80,43 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
         }) as usize
     ];
 
+    let dec_size = compress_to_buffer(src, mode, prepend_size, &mut compressed)?;
+    compressed.truncate(dec_size as usize);
+    Ok(compressed)
+}
+
+/// Compresses the full `src` buffer using the specified CompressionMode, where None and Some(Default)
+/// are treated equally, writing compressed bytes to `buffer`.
+///
+/// # Errors
+/// Returns std::io::Error with ErrorKind::InvalidInput if the src buffer is too long.
+/// Returns std::io::Error with ErrorKind::Other if the compression data does not find in `buffer`.
+pub fn compress_to_buffer(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool, buffer: &mut [u8]) -> Result<usize> {
+
+    // check that src isn't too big for lz4
+    let max_len: i32 = unsafe { LZ4_compressBound(src.len() as i32) };
+
+    if src.len() > (i32::max_value() as usize) || max_len <= 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "Compression input too long.",
+        ));
+    }
+
     let dec_size;
     {
         let dst_buf = if prepend_size {
             let size = src.len() as u32;
-            compressed[0] = size as u8;
-            compressed[1] = (size >> 8) as u8;
-            compressed[2] = (size >> 16) as u8;
-            compressed[3] = (size >> 24) as u8;
-            &mut compressed[4..]
+            buffer[0] = size as u8;
+            buffer[1] = (size >> 8) as u8;
+            buffer[2] = (size >> 16) as u8;
+            buffer[3] = (size >> 24) as u8;
+            &mut buffer[4..]
         } else {
-            &mut compressed
+            buffer
         };
+
+        let buf_len = dst_buf.len() as i32;
 
         dec_size = match mode {
             Some(CompressionMode::HIGHCOMPRESSION(level)) => unsafe {
@@ -82,7 +124,7 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
                     src.as_ptr() as *const c_char,
                     dst_buf.as_mut_ptr() as *mut c_char,
                     src.len() as i32,
-                    compress_bound,
+                    buf_len,
                     level,
                 )
             },
@@ -91,7 +133,7 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
                     src.as_ptr() as *const c_char,
                     dst_buf.as_mut_ptr() as *mut c_char,
                     src.len() as i32,
-                    compress_bound,
+                    buf_len,
                     accel,
                 )
             },
@@ -100,7 +142,7 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
                     src.as_ptr() as *const c_char,
                     dst_buf.as_mut_ptr() as *mut c_char,
                     src.len() as i32,
-                    compress_bound,
+                    buf_len,
                 )
             },
         };
@@ -109,8 +151,50 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
         return Err(Error::new(ErrorKind::Other, "Compression failed"));
     }
 
-    compressed.truncate(if prepend_size { dec_size + 4 } else { dec_size } as usize);
-    Ok(compressed)
+    let written_size = if prepend_size {
+        dec_size + 4
+    } else { 
+        dec_size
+    };
+
+    Ok(written_size as usize)
+}
+
+fn get_decompressed_size(src: &[u8], uncompressed_size: Option<i32>) -> Result<usize> {
+    let size;
+
+    if let Some(s) = uncompressed_size {
+        size = s;
+    } else {
+        if src.len() < 4 {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Source buffer must at least contain size prefix.",
+            ));
+        }
+        size =
+            (src[0] as i32) | (src[1] as i32) << 8 | (src[2] as i32) << 16 | (src[3] as i32) << 24;
+    }
+
+    if size < 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            if uncompressed_size.is_some() {
+                "Size parameter must not be negative."
+            } else {
+                "Parsed size prefix in buffer must not be negative."
+            },
+        ));
+    }
+
+    if unsafe { LZ4_compressBound(size) } <= 0 {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "Given size parameter is too big",
+        ));
+    }
+
+    Ok(size as usize)
 }
 
 /// Decompresses the src buffer. If uncompressed_size is None, the source length will be read from
@@ -123,7 +207,16 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
 /// Returns std::io::Error with ErrorKind::InvalidData if the decompression failed inside the C
 /// library. This is most likely due to malformed input.
 ///
-pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<u8>> {
+pub fn decompress(src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<u8>> {
+    let size = get_decompressed_size(src, uncompressed_size)?;
+
+    let mut buffer = vec![0u8; size];
+
+    decompress_to_buffer(src, uncompressed_size, &mut buffer)?;
+    Ok(buffer)
+}
+
+pub fn decompress_to_buffer(mut src: &[u8], uncompressed_size: Option<i32>, buffer: &mut [u8]) -> Result<usize> {
     let size;
 
     if let Some(s) = uncompressed_size {
@@ -159,11 +252,17 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
         ));
     }
 
-    let mut decompressed = vec![0u8; size as usize];
+    if size as usize > buffer.len() {
+        return Err(Error::new(
+            ErrorKind::InvalidInput,
+            "buffer isn't large enough to hold decompressed data"
+        ))
+    }
+
     let dec_bytes = unsafe {
         LZ4_decompress_safe(
             src.as_ptr() as *const c_char,
-            decompressed.as_mut_ptr() as *mut c_char,
+            buffer.as_mut_ptr() as *mut c_char,
             src.len() as i32,
             size,
         )
@@ -176,13 +275,14 @@ pub fn decompress(mut src: &[u8], uncompressed_size: Option<i32>) -> Result<Vec<
         ));
     }
 
-    decompressed.truncate(dec_bytes as usize);
-    Ok(decompressed)
+    Ok(dec_bytes as usize)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::block::{compress, decompress, CompressionMode};
+    use crate::block::{compress, decompress, CompressionMode, decompress_to_buffer};
+
+    use super::compress_to_buffer;
 
     #[test]
     fn test_compression_without_prefix() {
@@ -249,6 +349,24 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_compress_to_buffer() {
+        let data = b"qfn3489fqASFqvegrwe$%344thI,..kmTMN3 g{P}wefwf2fv2443ef3443RT[]rete$7-80956GRWbefvw@fVGrwGB24tggrm%&*I@!";
+
+        // test what happens when not enough space is available.
+        let mut small_buf = vec![0; 5];
+        let r = compress_to_buffer(&data[..], None, true, &mut small_buf);
+        assert!(r.is_err());
+
+
+        let mut big_buf = vec![0; 1000];
+        let r = compress_to_buffer(&data[..], None, true, &mut big_buf).unwrap();
+        assert_eq!(big_buf[r], 0);
+
+        let mut dec_buf = vec![0u8; data.len() + 1];
+        let dec_bytes = decompress_to_buffer(&big_buf[..r], None, &mut dec_buf).unwrap();
+        assert_eq!(&dec_buf[..dec_bytes], &data[..]);
+    }
     #[test]
     fn test_decompression_with_prefix() {
         let compressed: [u8; 250] = [
