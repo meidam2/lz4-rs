@@ -201,7 +201,7 @@ impl Drop for EncoderContext {
 #[cfg(test)]
 mod test {
     use super::EncoderBuilder;
-    use std::io::Write;
+    use std::io::{Read, Write};
 
     #[test]
     fn test_encoder_smoke() {
@@ -231,5 +231,29 @@ mod test {
         fn check_send<S: Send>(_: &S) {}
         let enc = EncoderBuilder::new().build(Vec::new());
         check_send(&enc);
+    }
+
+    #[test]
+    fn test_favor_dec_speed() {
+        let mut encoder = EncoderBuilder::new()
+            .level(11)
+            .favor_dec_speed(true)
+            .build(Vec::new())
+            .unwrap();
+        let mut input = Vec::new();
+        let mut rnd: u32 = 42;
+        for _ in 0..1024 * 1024 {
+            input.push((rnd & 0xFF) as u8);
+            rnd = ((1664525 as u64) * (rnd as u64) + (1013904223 as u64)) as u32;
+        }
+        encoder.write(&input).unwrap();
+        let (compressed, result) = encoder.finish();
+        result.unwrap();
+
+        let mut dec = crate::decoder::Decoder::new(&compressed[..]).unwrap();
+
+        let mut output = Vec::new();
+        dec.read_to_end(&mut output).unwrap();
+        assert_eq!(input, output);
     }
 }
