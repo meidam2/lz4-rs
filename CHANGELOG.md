@@ -1,3 +1,10 @@
+1.23.3 (March 5, 2022):
+* Update lz4 to 1.9.3
+* Add `[de]compress_to_buffer` to block API to allow reusing buffers (#16)
+* Windows static lib support
+* Support favor_dec_speed
+* Misc small fixes
+
 1.23.2:
  * Update lz4 to 1.9.2
  * Remove dependency on skeptic (replace with build-dependency docmatic for     README testing)
