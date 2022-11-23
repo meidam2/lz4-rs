@@ -33,6 +33,12 @@ pub enum CompressionMode {
     DEFAULT,
 }
 
+impl Default for CompressionMode {
+    fn default() -> Self {
+        CompressionMode::DEFAULT
+    }
+}
+
 /// Returns the size of the buffer that is guaranteed to hold the result of
 /// compressing `uncompressed_size` bytes of in data. Returns std::io::Error
 /// with ErrorKind::InvalidInput if input data is too long to be compressed by lz4.
