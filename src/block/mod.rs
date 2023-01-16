@@ -95,7 +95,8 @@ pub fn compress(src: &[u8], mode: Option<CompressionMode>, prepend_size: bool) -
 ///
 /// # Errors
 /// Returns std::io::Error with ErrorKind::InvalidInput if the src buffer is too long.
-/// Returns std::io::Error with ErrorKind::Other if the compression data does not find in `buffer`.
+/// The buffer cannot be larger than `i32::MAX`.
+/// Returns std::io::Error with ErrorKind::Other if the compression data does not fit in `buffer`.
 pub fn compress_to_buffer(
     src: &[u8],
     mode: Option<CompressionMode>,
