@@ -369,6 +369,14 @@ extern "C" {
     // int LZ4_freeStream(LZ4_stream_t* LZ4_streamPtr)
     pub fn LZ4_freeStream(LZ4_stream: *mut LZ4StreamEncode) -> c_int;
 
+    // int LZ4_setStreamDecode (LZ4_streamDecode_t* LZ4_streamDecode,
+    //                          const char* dictionary,
+    //                          int dictSize)
+    pub fn LZ4_setStreamDecode(LZ4_stream: *mut LZ4StreamDecode,
+                               dictionary: *const u8,
+                               dict_size: c_int)
+                               -> c_int;
+
     // LZ4_streamDecode_t* LZ4_createStreamDecode(void)
     pub fn LZ4_createStreamDecode() -> *mut LZ4StreamDecode;
 
