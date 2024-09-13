@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 extern crate lz4_sys;
 
 pub mod liblz4;
